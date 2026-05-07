@@ -6,7 +6,7 @@ A fully functional frontend for a Content Broadcasting System built with React.j
 
 ## 🚀 Live Demo
 
-> _Add deployment link here after deploying_
+**Live URL:** [https://content-broadcasting-system-fronten-henna.vercel.app](https://content-broadcasting-system-fronten-henna.vercel.app)
 
 ---
 
