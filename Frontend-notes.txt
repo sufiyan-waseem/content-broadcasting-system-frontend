@@ -1,0 +1,193 @@
+====================================================
+  CONTENT BROADCASTING SYSTEM — FRONTEND NOTES
+====================================================
+
+Author      : [Your Name]
+Tech Stack  : React.js (Vite) + Tailwind CSS + shadcn/ui
+Date        : May 2026
+
+----------------------------------------------------
+1. PROJECT STRUCTURE
+----------------------------------------------------
+
+src/
+├── components/
+│   ├── ProtectedRoute.jsx     # Auth & role-based route guards
+│   └── ui/                    # shadcn/ui reusable components
+│       (button, card, dialog, form, input, label,
+│        select, skeleton, table, tabs, textarea,
+│        toast, toaster, badge, dropdown-menu)
+│
+├── context/
+│   ├── AuthContext.jsx         # Global auth state (user, token, login, logout)
+│   └── ThemeContext.jsx        # Dark/light mode toggle
+│
+├── hooks/
+│   └── use-toast.js            # Toast notification hook (shadcn)
+│
+├── layouts/
+│   └── AppLayout.jsx           # Sidebar + topbar shell for authenticated pages
+│
+├── lib/
+│   ├── axios.js                # Axios instance (base URL, token interceptor, 401 handler)
+│   └── utils.js                # cn() utility for Tailwind class merging
+│
+├── mocks/
+│   └── db.js                   # Mock database: seed data, localStorage persistence, helpers
+│
+├── pages/
+│   ├── auth/
+│   │   └── LoginPage.jsx       # Login form with validation
+│   ├── teacher/
+│   │   ├── TeacherDashboard.jsx   # Stats overview
+│   │   ├── UploadContentPage.jsx  # Content upload form with drag-and-drop
+│   │   └── MyContentPage.jsx      # Teacher's content list with status
+│   ├── principal/
+│   │   ├── PrincipalDashboard.jsx    # System-wide stats
+│   │   ├── PendingApprovalsPage.jsx  # Approve/reject workflow
+│   │   └── AllContentPage.jsx        # All content with filters
+│   └── public/
+│       └── LiveBroadcastPage.jsx     # Public live broadcast (no auth)
+│
+└── services/
+    ├── auth.service.js         # Login, getMe
+    ├── content.service.js      # Upload, getMyContent, getAllContent, getPendingContent, getLiveBroadcast
+    └── approval.service.js     # approveContent, rejectContent
+
+
+----------------------------------------------------
+2. AUTHENTICATION FLOW
+----------------------------------------------------
+
+- On login, the auth service validates credentials and returns { user, token }.
+- Token and user object are stored in localStorage.
+- AuthContext reads localStorage SYNCHRONOUSLY (not in useEffect) via a lazy
+  initializer in useState — this eliminates any auth flash/flicker on page load.
+- All API calls attach the token via an Axios request interceptor (lib/axios.js).
+- On 401 response, the interceptor clears localStorage and redirects to /login.
+- On logout, localStorage is cleared and auth state is reset.
+
+
+----------------------------------------------------
+3. ROLE-BASED ROUTING
+----------------------------------------------------
+
+Three route guard components handle access control:
+
+  PublicRoute   — Renders login page. If already logged in, redirects to
+                  /teacher or /principal based on role.
+
+  ProtectedRoute(allowedRole="teacher")
+                — Allows only teacher-role users. Others are redirected.
+
+  ProtectedRoute(allowedRole="principal")
+                — Allows only principal-role users. Others are redirected.
+
+Route structure (App.jsx):
+  /login                    → PublicRoute → LoginPage
+  /live/:teacherId          → LiveBroadcastPage (no auth)
+  /teacher/*                → ProtectedRoute(teacher) → AppLayout → [pages]
+  /principal/*              → ProtectedRoute(principal) → AppLayout → [pages]
+
+
+----------------------------------------------------
+4. API INTEGRATION APPROACH
+----------------------------------------------------
+
+The application follows a strict service-layer architecture:
+
+  ✅ All API calls are in src/services/ — NEVER inside components.
+  ✅ Components call service functions via TanStack Query (useQuery / useMutation).
+  ✅ The API layer is fully replaceable — swap mock services with real
+     axios calls without touching any component or page file.
+
+Current implementation uses a MOCK service layer (src/mocks/db.js) backed
+by localStorage, which allows the frontend to run completely independently
+without any backend server.
+
+To switch to a real backend:
+  1. Update BASE_URL in src/lib/axios.js
+  2. Replace mock function bodies in src/services/*.js with axios calls.
+     The function signatures and return shapes remain identical.
+
+Example (content.service.js):
+  MOCK:  const db = getDB(); return { success: true, data: db.contents };
+  REAL:  const { data } = await axiosInstance.get('/content'); return data;
+
+
+----------------------------------------------------
+5. STATE MANAGEMENT APPROACH
+----------------------------------------------------
+
+- Global State  : React Context API (AuthContext, ThemeContext)
+                  Lightweight, no external library needed for 2 global states.
+
+- Server State  : TanStack Query (React Query)
+                  Handles all async data fetching, caching, loading/error states,
+                  and automatic background refetching.
+
+- Form State    : React Hook Form + Zod
+                  Performant form handling with schema-based validation.
+                  No re-renders on every keystroke.
+
+- Local UI State: React useState
+                  Used only for component-level UI (sidebar open, dialog open, etc.)
+
+
+----------------------------------------------------
+6. KEY DESIGN DECISIONS
+----------------------------------------------------
+
+a) Synchronous Auth Initialization
+   localStorage.getItem() is synchronous, so the auth state is initialized
+   in the useState lazy initializer. This means loading is never true,
+   and there is zero flash of unauthenticated content.
+
+b) Mock-First, Backend-Ready Architecture
+   The service layer interface is identical to what a real REST API would
+   need. This ensures the frontend can be demoed independently and integrated
+   with a backend with minimal changes.
+
+c) File Upload Preview
+   Files are converted to base64 data URLs using FileReader API before
+   being stored in the mock DB — enabling full image preview functionality
+   without a file server.
+
+d) Replaceable API Design
+   The axiosInstance in lib/axios.js is pre-configured with interceptors.
+   When a real backend is available, services are the only files to change.
+
+
+----------------------------------------------------
+7. ASSUMPTIONS
+----------------------------------------------------
+
+1. Authentication is email + password only (no OAuth, no OTP).
+2. Only images (JPG, PNG, GIF) are supported for content upload (max 10MB).
+3. "Active" content means: status === 'approved' AND current time is within
+   startTime–endTime window. This is determined client-side from API data.
+4. The Live Broadcast page shows at most one active content per teacher
+   (the first matching record). Multiple active items are not supported in
+   the current scope.
+5. The frontend uses a mock backend (localStorage) by default. A real
+   backend can be connected by updating the service layer only.
+6. Pagination is not implemented — the assignment mentions 500–1000 items
+   as a performance test; useMemo filtering is used instead.
+
+
+----------------------------------------------------
+8. BONUS FEATURES IMPLEMENTED
+----------------------------------------------------
+
+✅ Dark Mode (toggleable, persisted in localStorage)
+✅ Drag-and-drop file upload with preview
+✅ Skeleton loaders (all pages show skeletons while loading)
+✅ TanStack Query (React Query) for server state management
+✅ Auto-refresh / polling on Live Broadcast page (every 30s)
+✅ Protected routes with role-based access control
+✅ Toast notifications for all user actions
+✅ Empty state illustrations on all list pages
+✅ Responsive design (mobile sidebar with overlay)
+
+
+====================================================
