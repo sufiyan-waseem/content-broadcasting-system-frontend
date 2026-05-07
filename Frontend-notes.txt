@@ -2,7 +2,7 @@
   CONTENT BROADCASTING SYSTEM — FRONTEND NOTES
 ====================================================
 
-Author      : [Your Name]
+Author      : Sufiyan Waseem
 Tech Stack  : React.js (Vite) + Tailwind CSS + shadcn/ui
 Date        : May 2026
 

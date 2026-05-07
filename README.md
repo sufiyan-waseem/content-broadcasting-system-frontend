@@ -1,5 +1,7 @@
 # Content Broadcasting System — Frontend
 
+**Author:** Sufiyan Waseem
+
 A fully functional frontend for a Content Broadcasting System built with React.js, Tailwind CSS, and shadcn/ui. Designed for educational environments where teachers upload content, principals approve it, and students view it live.
 
 ## 🚀 Live Demo
